@@ -1,0 +1,52 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+*.pdb
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv
+env/
+venv/
+myenv/
+
+# VSCode
+.vscode/
+
+# Data and outputs
+outputs/
+data/
+!data/*.md
+npz/
+# Model checkpoints
+*.pt
+*.pth
+*.h5
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python egg files
+*.egg-info/
+*.egg
+
+debug.log
+
+# Ignore JSON session files
+*.json
+
+# Ignore compressed numpy files
+*.npz
+
+# Ignore video files
+*.mp4
