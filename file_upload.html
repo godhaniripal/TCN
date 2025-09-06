@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual ZIP Upload to Firebase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(120deg, #e9edf5 0%, #f5f7fa 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-anim {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .bg-gradient {
+            position: absolute;
+            width: 100vw; height: 100vh;
+            background: radial-gradient(ellipse at 60% 20%, #b6c6e6 0%, transparent 70%),
+                        radial-gradient(ellipse at 20% 80%, #dbeafe 0%, transparent 70%);
+            opacity: 0.5;
+            animation: bgmove 16s ease-in-out infinite alternate;
+        }
+        @keyframes bgmove {
+            0% { background-position: 0% 0%, 100% 100%; }
+            100% { background-position: 100% 0%, 0% 100%; }
+        }
+        .container {
+            background: rgba(255,255,255,0.82);
+            max-width: 400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 36px 28px 28px 28px;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px 0 rgba(60,72,88,0.13), 0 1.5px 6px 0 rgba(60,72,88,0.07);
+            position: relative;
+            backdrop-filter: blur(12px) saturate(1.1);
+            border: 1.5px solid rgba(180,190,210,0.18);
+            z-index: 1;
+            animation: fadeInUp 0.7s cubic-bezier(.68,-0.55,.27,1.55);
+        }
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(32px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.1rem;
+            margin-bottom: 10px;
+        }
+        .icon svg {
+            width: 38px; height: 38px;
+            stroke: #2d3a4a;
+            fill: #e9edf5;
+        }
+        h2 {
+            text-align: center;
+            font-size: 1.22rem;
+            font-weight: 600;
+            margin-bottom: 18px;
+            color: #2d3a4a;
+            letter-spacing: 0.01em;
+        }
+        .progress-bar {
+            width: 100%;
+            background: #e3e7ed;
+            border-radius: 7px;
+            margin: 18px 0 10px 0;
+            height: 18px;
+            box-shadow: 0 1px 4px #e3e7ed;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar-fill {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa, #22d3ee, #3b82f6);
+            background-size: 300% 100%;
+            border-radius: 7px;
+            width: 0%;
+            color: #fff;
+            text-align: right;
+            line-height: 18px;
+            font-weight: 600;
+            font-size: 0.97rem;
+            padding-right: 10px;
+            transition: width 0.4s cubic-bezier(.68,-0.55,.27,1.55), background-position 0.5s;
+            animation: progBarAnim 2.5s linear infinite;
+            box-shadow: 0 0 12px 0 #60a5fa55;
+        }
+        @keyframes progBarAnim {
+            0% { background-position: 0% 0; filter: brightness(1.05); }
+            50% { background-position: 100% 0; filter: brightness(1.18) drop-shadow(0 0 8px #22d3ee88); }
+            100% { background-position: 0% 0; filter: brightness(1.05); }
+        }
+        .status {
+            margin: 14px 0 0 0;
+            text-align: center;
+            font-size: 1.01rem;
+            font-weight: 500;
+            color: #3b82f6;
+            transition: transform 0.2s, color 0.2s;
+        }
+        .status.success {
+            color: #166534;
+            background: #e7f6ed;
+            padding: 8px 0;
+            border-radius: 5px;
+            animation: bounceStatus 0.7s;
+        }
+        .status.error {
+            color: #b91c1c;
+            background: #fbeaea;
+            padding: 8px 0;
+            border-radius: 5px;
+            animation: shakeStatus 0.5s;
+        }
+        @keyframes bounceStatus {
+            0% { transform: scale(1.09); }
+            60% { transform: scale(0.97); }
+            100% { transform: scale(1); }
+        }
+        @keyframes shakeStatus {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+        .url-display {
+            word-break: break-all;
+            background: #f4f7fa;
+            padding: 8px 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 0.96rem;
+            color: #2d3a4a;
+            box-shadow: 0 1px 4px #e3e7ed;
+        }
+        #fileInput {
+            display: block;
+            width: 100%;
+            margin: 0 auto 18px auto;
+            font-size: 1.01rem;
+            border: 1.2px solid #cbd5e1;
+            border-radius: 7px;
+            padding: 9px 12px;
+            background: #f8fafc;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            box-shadow: 0 1px 4px #e3e7ed;
+        }
+        #fileInput:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 2px #3b82f644;
+        }
+        #uploadBtn {
+            display: block;
+            width: 100%;
+            padding: 12px 0;
+            background: linear-gradient(90deg, #3b82f6, #64748b);
+            color: #fff;
+            font-size: 1.07rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 7px;
+            margin-top: 10px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px #3b82f622;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.01em;
+        }
+        #uploadBtn:hover {
+            background: linear-gradient(90deg, #64748b, #3b82f6);
+            transform: scale(1.03);
+            box-shadow: 0 4px 16px #3b82f633;
+        }
+        #uploadBtn:active {
+            background: #3b82f6;
+            transform: scale(0.98);
+        }
+        #uploadBtn:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #3b82f644;
+        }
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .confetti-piece {
+            position: absolute;
+            width: 12px; height: 18px;
+            border-radius: 4px;
+            opacity: 0.5;
+            will-change: transform;
+        }
+        @media (max-width: 500px) {
+            .container { max-width: 98vw; padding: 18px 4vw 18px 4vw; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-anim"><div class="bg-gradient"></div></div>
+<main style="width:100vw; min-height:100vh; display:flex; align-items:center; justify-content:center;">
+<div class="container">
+    <div class="icon" title="Upload">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M36 32a8 8 0 10-15.9-2.1A6 6 0 1012 34h24z" stroke-width="2.2" stroke="#3b82f6" fill="#e9edf5"/>
+            <path d="M24 18v12m0 0l-5-5m5 5l5-5" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <h2 style="margin-bottom: 24px;">Upload ZIP to Firebase</h2>
+    <input type="file" id="fileInput" accept=".zip" style="margin-bottom: 18px;" />
+    <div class="progress-bar" style="margin-bottom: 18px;"><span class="progress-bar-fill" id="progressBar">0%</span></div>
+    <button id="uploadBtn" style="margin-bottom: 18px;">Upload</button>
+    <div id="status" class="status" style="margin-bottom: 18px;"></div>
+    <div id="urlContainer" style="display:none; text-align:center;">
+        <h4 style="margin:10px 0 4px 0; font-size:1.01rem; color:#3b82f6; font-weight:600;">Download URL:</h4>
+        <div id="downloadUrl" class="url-display" style="display:inline-block; text-align:left;"></div>
+    </div>
+    <div style="text-align:center; margin-top:18px; font-size:1.01rem; color:#64748b; font-weight:500; letter-spacing:0.01em;">
+      <span style="font-size:1.1em;">ℹ️</span>Download URL will appear after completion.
+    </div>
+</div>
+</main>
+<canvas class="confetti" id="confettiCanvas"></canvas>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyClF8b_h1eEQd7wPkSeOOKsOXU5w-wtb1o",
+  authDomain: "datacollection-167ed.firebaseapp.com",
+  projectId: "datacollection-167ed",
+  storageBucket: "datacollection-167ed.firebasestorage.app",
+  messagingSenderId: "173747659021",
+  appId: "1:173747659021:web:0428275c54b1cccba49044"
+};
+firebase.initializeApp(firebaseConfig);
+const storage = firebase.storage();
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const statusDiv = document.getElementById('status');
+const progressBar = document.getElementById('progressBar');
+const urlContainer = document.getElementById('urlContainer');
+const downloadUrlDiv = document.getElementById('downloadUrl');
+let selectedFile = null;
+fileInput.addEventListener('change', e => {
+  selectedFile = e.target.files[0];
+  statusDiv.textContent = '';
+  urlContainer.style.display = 'none';
+  progressBar.style.width = '0%';
+  progressBar.textContent = '0%';
+  progressBar.style.backgroundPosition = '0% 0';
+});
+uploadBtn.onclick = function() {
+  if (!selectedFile) {
+    statusDiv.textContent = 'Please select a ZIP file.';
+    statusDiv.className = 'status error';
+    return;
+  }
+  const fileName = 'uploads/' + Date.now() + '_' + selectedFile.name;
+  const fileRef = storage.ref().child(fileName);
+  const uploadTask = fileRef.put(selectedFile);
+  statusDiv.textContent = 'Uploading: 0%';
+  statusDiv.className = 'status';
+  let lastProg = 0;
+  uploadTask.on('state_changed',
+    snap => {
+      const prog = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+      progressBar.style.width = prog + '%';
+      progressBar.textContent = prog + '%';
+      progressBar.style.backgroundPosition = (prog * 2) + '% 0';
+      statusDiv.textContent = 'Uploading: ' + prog + '%';
+      statusDiv.className = 'status';
+      if (prog > lastProg) {
+        progressBar.style.filter = 'hue-rotate(' + (prog * 1.2) + 'deg)';
+        lastProg = prog;
+      }
+    },
+    err => {
+      statusDiv.textContent = 'Upload failed: ' + err.message;
+      statusDiv.className = 'status error';
+    },
+    async () => {
+      const url = await uploadTask.snapshot.ref.getDownloadURL();
+      statusDiv.textContent = 'Upload complete!';
+      statusDiv.className = 'status success';
+      downloadUrlDiv.textContent = url;
+      urlContainer.style.display = 'block';
+      launchConfetti();
+    }
+  );
+};
+// Confetti animation
+function launchConfetti() {
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  let pieces = [];
+  const colors = ['#3b82f6', '#64748b', '#e3e7ed', '#f4f7fa'];
+  for (let i = 0; i < 60; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * -canvas.height,
+      w: 12,
+      h: 18,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      angle: Math.random() * 2 * Math.PI,
+      speed: 2 + Math.random() * 2.2,
+      rot: Math.random() * 0.12 - 0.06
+    });
+  }
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let p of pieces) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+      p.y += p.speed;
+      p.angle += p.rot;
+      if (p.y > canvas.height + 30) {
+        p.y = Math.random() * -40;
+        p.x = Math.random() * canvas.width;
+      }
+    }
+    frame++;
+    if (frame < 50) requestAnimationFrame(draw);
+    else setTimeout(() => ctx.clearRect(0,0,canvas.width,canvas.height), 300);
+  }
+  draw();
+}
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
